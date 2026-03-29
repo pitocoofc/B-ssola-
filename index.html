@@ -1,171 +1,215 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>Document</title>
-    <style>
-     body{
-       background-color: black;
-       color: white;
-    
-     }
-      .bod{
-        display: flex;
-        flex-direction: column;
-      
-        
-       
-      }
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghost Compass</title>
 
-      .compass {
-        position: relative;
-        width: 320px;
-        height: 320px;
-       
-        border-radius: 50%;
-box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-        margin: auto;
-        background-color: white;
-      }
+<style>
+body{
+    background:#000;
+    color:#fff;
+    font-family: 'Segoe UI', sans-serif;
+    margin:0;
+    text-align:center;
+}
 
-      .compass > .arrow {
-        position: absolute;
-        width: 0;
-        height: 0;
-        top: -20px;
-        left: 50%;
-        transform: translateX(-50%);
-        border-style: solid;
-        border-width: 30px 20px 0 20px;
-        border-color: red transparent transparent transparent;
-        z-index: 1;
-      }
+/* TOPO */
+.top-bar{
+    display:flex;
+    justify-content:center;
+    gap:40px;
+    padding:15px;
+    font-size:18px;
+}
 
-      .compass > .compass-circle,
-      .compass .compass > .compass-circle,
-      .compass > .my-point {
-        position: absolute;
-        width: 90%;
-        height: 90%;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        transition: transform 0.1s ease-out;
-        background: url(https://purepng.com/public/uploads/large/purepng.com-compasscompassinstrumentnavigationcardinal-directionspointsdiagram-1701527842316onq7x.png)
-          center no-repeat;
-        background-size: contain;
-        
-      }
+.mode{
+    opacity:0.4;
+    cursor:pointer;
+}
+.mode.active{
+    opacity:1;
+}
 
-      .compass > .my-point {
-        opacity: 0;
-        width: 20%;
-        height: 20%;
-        background: rgb(8, 223, 69);
-        border-radius: 50%;
-        transition: opacity 0.5s ease-out;
-      }
+/* GRAUS */
+.deg{
+    font-size:80px;
+    margin-top:10px;
+}
+.dir{
+    font-size:18px;
+    opacity:0.6;
+}
 
-      .start-btn {
-       
-        
-      }
-    </style>
-  </head>
-  <body>
-    <div class="bod">
-    <div class="compass">
-      <div class="arrow"></div>
-      <div class="compass-circle"></div>
-      <div class="my-point"></div>
-    </div>
-    </div>
-    <button class="start-btn">Start compass</button>
-    </div>
-    </div>
-  </body>
+/* COMPASS */
+.compass{
+    width:280px;
+    height:280px;
+    margin:30px auto;
+    position:relative;
+}
+
+.arrow{
+    position:absolute;
+    top:-15px;
+    left:50%;
+    transform:translateX(-50%);
+    width:0;height:0;
+    border-left:10px solid transparent;
+    border-right:10px solid transparent;
+    border-bottom:20px solid white;
+    z-index:2;
+}
+
+.circle{
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    border:2px solid #333;
+    position:absolute;
+    background:url('https://purepng.com/public/uploads/large/purepng.com-compasscompassinstrumentnavigationcardinal-directionspointsdiagram-1701527842316onq7x.png') center/contain no-repeat;
+}
+
+/* LOCALIZAÇÃO */
+.coords{
+    margin-top:30px;
+    font-size:14px;
+    opacity:0.8;
+}
+
+.coords span{
+    display:block;
+    margin-top:10px;
+    font-size:20px;
+}
+
+/* BOTÃO */
+button{
+    margin-top:20px;
+    padding:10px 20px;
+    background:#111;
+    color:#fff;
+    border:1px solid #333;
+    border-radius:6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="top-bar">
+    <div class="mode active" onclick="setMode('raw')">Bússola</div>
+    <div class="mode" onclick="setMode('smooth')">Premium</div>
+</div>
+
+<div class="deg" id="deg">0°</div>
+<div class="dir" id="dir">N</div>
+
+<div class="compass">
+    <div class="arrow"></div>
+    <div class="circle" id="circle"></div>
+</div>
+
+<div class="coords">
+    Lat. S
+    <span id="lat">--</span>
+    Long. O
+    <span id="lon">--</span>
+</div>
+
+<button onclick="startCompass()">Iniciar</button>
+
 <script>
-const compassCircle = document.querySelector(".compass-circle");
-    const myPoint = document.querySelector(".my-point");
-    const startBtn = document.querySelector(".start-btn");
-    const isIOS =
-      navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
-      navigator.userAgent.match(/AppleWebKit/);
+const circle = document.getElementById("circle");
+const degText = document.getElementById("deg");
+const dirText = document.getElementById("dir");
 
-    function init() {
-      startBtn.addEventListener("click", startCompass);
-      navigator.geolocation.getCurrentPosition(locationHandler);
+let mode = "raw";
+let current = 0;
+let target = 0;
 
-      if (!isIOS) {
-        window.addEventListener("deviceorientationabsolute", handler, true);
-      }
+/* DIREÇÃO */
+function getDirection(deg){
+    const dirs = ["N","NE","E","SE","S","SW","W","NW"];
+    return dirs[Math.round(deg/45)%8];
+}
+
+/* MODO */
+function setMode(m){
+    mode = m;
+    document.querySelectorAll(".mode").forEach(el=>el.classList.remove("active"));
+    event.target.classList.add("active");
+
+    current = target;
+}
+
+/* SENSOR */
+function handler(e){
+    let compass = e.webkitCompassHeading || (360 - e.alpha);
+    target = compass;
+}
+
+/* LOOP */
+function update(){
+    let angle;
+
+    if(mode === "raw"){
+        angle = target;
+    }else{
+        let diff = target - current;
+
+        if(diff > 180) diff -= 360;
+        if(diff < -180) diff += 360;
+
+        current += diff * 0.08;
+        angle = current;
     }
 
-    function startCompass() {
-      if (isIOS) {
+    circle.style.transform = `rotate(${-angle}deg)`;
+
+    let rounded = Math.round(angle);
+    degText.innerText = rounded + "°";
+    dirText.innerText = getDirection(rounded);
+
+    requestAnimationFrame(update);
+}
+update();
+
+/* GEO */
+function locationHandler(pos){
+    let lat = pos.coords.latitude;
+    let lon = pos.coords.longitude;
+
+    document.getElementById("lat").innerText = formatCoord(lat);
+    document.getElementById("lon").innerText = formatCoord(lon);
+}
+
+function formatCoord(coord){
+    let deg = Math.floor(Math.abs(coord));
+    let min = Math.floor((Math.abs(coord) - deg) * 60);
+    let sec = Math.floor((((Math.abs(coord) - deg) * 60) - min) * 60);
+    return `${deg}°${min}'${sec}"`;
+}
+
+/* START */
+function startCompass(){
+    navigator.geolocation.getCurrentPosition(locationHandler);
+
+    if (typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function") {
+
         DeviceOrientationEvent.requestPermission()
-          .then((response) => {
-            if (response === "granted") {
-              window.addEventListener("deviceorientation", handler, true);
-            } else {
-              alert("has to be allowed!");
+        .then(response => {
+            if(response === "granted"){
+                window.addEventListener("deviceorientation", handler);
             }
-          })
-          .catch(() => alert("not supported"));
-      }
+        });
+
+    } else {
+        window.addEventListener("deviceorientationabsolute", handler);
     }
+}
+</script>
 
-    function handler(e) {
-      compass = e.webkitCompassHeading || Math.abs(e.alpha - 360);
-      compassCircle.style.transform = `translate(-50%, -50%) rotate(${-compass}deg)`;
-
-      // ±15 
-      if (
-        (pointDegree < Math.abs(compass) &&
-          pointDegree + 15 > Math.abs(compass)) ||
-        pointDegree > Math.abs(compass + 15) ||
-        pointDegree < Math.abs(compass)
-      ) {
-        myPoint.style.opacity = 0;
-      } else if (pointDegree) {
-        myPoint.style.opacity = 1;
-      }
-    }
-
-    let pointDegree;
-
-    function locationHandler(position) {
-      const { latitude, longitude } = position.coords;
-      pointDegree = calcDegreeToPoint(latitude, longitude);
-
-      if (pointDegree < 0) {
-        pointDegree = pointDegree + 360;
-      }
-    }
-
-    function calcDegreeToPoint(latitude, longitude) {
-      // Qibla geolocation
-      const point = {
-        lat: 21.422487,
-        lng: 39.826206
-      };
-
-      const phiK = (point.lat * Math.PI) / 180.0;
-      const lambdaK = (point.lng * Math.PI) / 180.0;
-      const phi = (latitude * Math.PI) / 180.0;
-      const lambda = (longitude * Math.PI) / 180.0;
-      const psi =
-        (180.0 / Math.PI) *
-        Math.atan2(
-          Math.sin(lambdaK - lambda),
-          Math.cos(phi) * Math.tan(phiK) -
-            Math.sin(phi) * Math.cos(lambdaK - lambda)
-        );
-      return Math.round(psi);
-    }
-
-    init();
-  </script>
+</body>
 </html>
