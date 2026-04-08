@@ -780,17 +780,50 @@ recognition.onresult = async (event) => {
 
 // Função auxiliar para buscar no JSON sem poluir o chat se quiser
 async function buscarRespostaSilenciosa(texto) {
-    // Aqui você reutiliza a lógica do seu sendMessage() 
-    // mas retorna apenas a string da resposta.
-    // Exemplo simplificado:
-    const response = await fetch(`https://raw.githubusercontent.com/pitocoofc/jt/main/modelos/${currentPath}/respostas.json`);
-    const data = await response.json();
     const userText = normalizar(texto);
-    
-    // ... lógica de busca de keywords que você já tem ...
-    // Retorne a resposta encontrada ou o fallback
-    return "Entendi sua mensagem. Isso é uma simulação de voz."; 
+    try {
+        const response = await fetch(`https://raw.githubusercontent.com/pitocoofc/jt/main/modelos/${currentPath}/respostas.json`);
+        const data = await response.json();
+        
+        let responseToUser = "";
+        let found = false;
+
+        // Percorre as keywords exatamente como no seu sendMessage
+        for (let keyGroup in data.keywords) {
+            const keys = keyGroup.split(',').map(k => normalizar(k));
+            if (keys.some(k => userText === k || userText.includes(k))) {
+                const item = data.keywords[keyGroup];
+                
+                // Trata a aleatoriedade do ';'
+                if (item.texto.includes(';')) {
+                    const frases = item.texto.split(';').map(f => f.trim());
+                    responseToUser = frases[Math.floor(Math.random() * frases.length)];
+                } else {
+                    responseToUser = item.texto;
+                }
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            // Trata o fallback com ';'
+            if (data.fallback.includes(';')) {
+                const fbs = data.fallback.split(';').map(f => f.trim());
+                responseToUser = fbs[Math.floor(Math.random() * fbs.length)];
+            } else {
+                responseToUser = data.fallback;
+            }
+        }
+
+        return responseToUser;
+
+    } catch (err) {
+        console.error("Erro na busca silenciosa:", err);
+        return "Tive um problema ao acessar minha base de dados.";
+    }
 }
+
 
   
 </script>  
